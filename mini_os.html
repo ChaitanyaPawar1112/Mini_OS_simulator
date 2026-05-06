@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini Operating System Simulator</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', 'Courier New', monospace;
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container { max-width: 1500px; margin: 0 auto; }
+
+        .header { text-align: center; margin-bottom: 30px; }
+
+        h1 {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .subtitle { color: #a0aec0; font-size: 0.95em; letter-spacing: 1px; }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+            gap: 25px;
+            margin-bottom: 25px;
+        }
+
+        .card {
+            background: rgba(15, 25, 45, 0.85);
+            backdrop-filter: blur(12px);
+            border-radius: 20px;
+            padding: 0;
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            overflow: hidden;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 48px rgba(0,0,0,0.5);
+            border-color: rgba(102, 126, 234, 0.6);
+        }
+
+        .card-header {
+            background: linear-gradient(135deg, rgba(102,126,234,0.2), rgba(118,75,162,0.2));
+            padding: 15px 20px;
+            border-bottom: 2px solid rgba(102,126,234,0.5);
+        }
+
+        .card-header h2 {
+            color: #667eea;
+            font-size: 1.3em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-body {
+            padding: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .card-body::-webkit-scrollbar { width: 8px; }
+        .card-body::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); border-radius: 10px; }
+        .card-body::-webkit-scrollbar-thumb { background: #667eea; border-radius: 10px; }
+
+        .process-item {
+            background: linear-gradient(135deg, rgba(26,35,60,0.9), rgba(20,28,50,0.9));
+            border-radius: 12px;
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            border-left: 4px solid #48bb78;
+            transition: all 0.3s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+
+        .process-item:hover { transform: translateX(5px); }
+
+        .process-item.running {
+            border-left-color: #f56565;
+            background: linear-gradient(135deg, rgba(245,101,101,0.15), rgba(220,80,80,0.1));
+            animation: glow 1.5s infinite;
+        }
+
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 5px rgba(245,101,101,0.3); }
+            50% { box-shadow: 0 0 15px rgba(245,101,101,0.6); }
+        }
+
+        .process-name {
+            font-size: 1.1em;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .process-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 8px;
+            font-size: 0.85em;
+            color: #cbd5e0;
+            margin-top: 8px;
+        }
+
+        .detail-badge {
+            background: rgba(0,0,0,0.4);
+            padding: 4px 8px;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .pages-list {
+            font-family: monospace;
+            font-size: 0.8em;
+            color: #9ae6b4;
+            margin-top: 6px;
+        }
+
+        .memory-block {
+            background: rgba(26,35,60,0.8);
+            border-radius: 8px;
+            padding: 8px 12px;
+            margin-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85em;
+            transition: all 0.2s;
+        }
+
+        .memory-block:hover { transform: scale(1.02); }
+        .memory-free { border-left: 3px solid #48bb78; background: rgba(72,187,120,0.1); }
+        .memory-used { border-left: 3px solid #f56565; background: rgba(245,101,101,0.1); }
+        .memory-address { font-family: monospace; font-weight: bold; color: #a0aec0; }
+        .memory-owner { font-family: monospace; color: #fbbf24; }
+
+        .file-item {
+            background: rgba(26,35,60,0.8);
+            border-radius: 10px;
+            padding: 10px 12px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid rgba(102,126,234,0.2);
+        }
+
+        .file-item:hover {
+            background: rgba(102,126,234,0.2);
+            transform: translateX(5px);
+            border-color: #667eea;
+        }
+
+        .file-name { font-weight: bold; color: #9ae6b4; display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+        .file-meta { font-size: 0.75em; color: #a0aec0; }
+        .file-content { font-size: 0.8em; color: #cbd5e0; margin-top: 5px; font-family: monospace; }
+
+        .stats {
+            display: flex;
+            gap: 15px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(102,126,234,0.3);
+        }
+
+        .stat {
+            background: rgba(0,0,0,0.4);
+            padding: 8px 12px;
+            border-radius: 10px;
+            font-size: 0.85em;
+            flex: 1;
+            text-align: center;
+        }
+
+        .stat-value { color: #667eea; font-weight: bold; font-size: 1.2em; margin-left: 5px; }
+
+        .control-panel {
+            background: rgba(15,25,45,0.9);
+            backdrop-filter: blur(12px);
+            border-radius: 20px;
+            padding: 25px;
+            border: 1px solid rgba(102,126,234,0.3);
+            margin-top: 25px;
+        }
+
+        .control-group {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+
+        .control-group label { color: #a0aec0; font-size: 0.85em; }
+
+        input, select, button {
+            padding: 10px 15px;
+            font-family: 'Segoe UI', monospace;
+            border: 1px solid #667eea;
+            background: rgba(0,0,0,0.6);
+            color: #e2e8f0;
+            border-radius: 10px;
+            font-size: 0.9em;
+            transition: all 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #9ae6b4;
+            box-shadow: 0 0 10px rgba(154,230,180,0.3);
+        }
+
+        button {
+            cursor: pointer;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border: none;
+            font-weight: bold;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102,126,234,0.4);
+        }
+
+        button:active { transform: translateY(0); }
+
+        .status-bar {
+            background: rgba(0,0,0,0.6);
+            padding: 12px 18px;
+            margin-top: 20px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            color: #9ae6b4;
+            font-family: monospace;
+            border-left: 3px solid #667eea;
+        }
+
+        .empty-state { text-align: center; padding: 40px; color: #718096; font-style: italic; }
+
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.7em; font-weight: bold; }
+        .badge-ready { background: #48bb78; color: #fff; }
+        .badge-running { background: #f56565; color: #fff; animation: pulse 1s infinite; }
+        .badge-terminated { background: #718096; color: #fff; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        /* ===== GANTT CHART STYLES ===== */
+        .gantt-card {
+            grid-column: 1 / -1;
+        }
+
+        .gantt-container {
+            padding: 20px;
+        }
+
+        .gantt-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .gantt-toolbar span {
+            color: #a0aec0;
+            font-size: 0.85em;
+        }
+
+        .gantt-btn {
+            padding: 6px 14px;
+            font-size: 0.8em;
+            background: rgba(0,0,0,0.4);
+            border: 1px solid rgba(102,126,234,0.4);
+            color: #cbd5e0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .gantt-btn:hover {
+            background: rgba(102,126,234,0.2);
+            border-color: #667eea;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .gantt-btn.active {
+            background: rgba(102,126,234,0.3);
+            border-color: #667eea;
+            color: #fff;
+        }
+
+        /* Timeline legend */
+        .gantt-legend {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.78em;
+            color: #a0aec0;
+        }
+
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+
+        /* Gantt scroll wrapper */
+        .gantt-scroll {
+            overflow-x: auto;
+            overflow-y: visible;
+            padding-bottom: 8px;
+        }
+
+        .gantt-scroll::-webkit-scrollbar { height: 6px; }
+        .gantt-scroll::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); border-radius: 10px; }
+        .gantt-scroll::-webkit-scrollbar-thumb { background: #667eea; border-radius: 10px; }
+
+        /* Row labels */
+        .gantt-inner {
+            display: flex;
+            min-width: max-content;
+        }
+
+        .gantt-labels {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding-top: 24px; /* align with timeline */
+            padding-right: 10px;
+            flex-shrink: 0;
+        }
+
+        .gantt-label {
+            height: 34px;
+            display: flex;
+            align-items: center;
+            font-size: 0.78em;
+            color: #a0aec0;
+            white-space: nowrap;
+            font-family: monospace;
+        }
+
+        /* Timeline area */
+        .gantt-timeline-wrap {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex: 1;
+        }
+
+        /* Tick marks row */
+        .gantt-ticks {
+            display: flex;
+            height: 20px;
+            align-items: flex-end;
+            position: relative;
+        }
+
+        .gantt-tick {
+            font-size: 0.65em;
+            color: #4a5568;
+            position: absolute;
+            transform: translateX(-50%);
+            white-space: nowrap;
+        }
+
+        /* Process rows */
+        .gantt-row {
+            height: 34px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 6px;
+            position: relative;
+            overflow: visible;
+        }
+
+        /* Individual blocks */
+        .gantt-block {
+            position: absolute;
+            top: 3px;
+            height: 28px;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7em;
+            font-weight: bold;
+            color: #fff;
+            overflow: hidden;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: filter 0.15s, transform 0.15s;
+            border: 1px solid rgba(255,255,255,0.15);
+        }
+
+        .gantt-block:hover {
+            filter: brightness(1.25);
+            transform: scaleY(1.08);
+            z-index: 10;
+        }
+
+        /* Tooltip */
+        .gantt-tooltip {
+            position: fixed;
+            background: rgba(10,15,35,0.95);
+            border: 1px solid rgba(102,126,234,0.5);
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 0.78em;
+            color: #e2e8f0;
+            pointer-events: none;
+            z-index: 1000;
+            display: none;
+            white-space: nowrap;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+        }
+
+        /* CPU Utilization bar */
+        .gantt-utilization {
+            margin-top: 14px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            padding: 12px 14px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .util-label { font-size: 0.8em; color: #a0aec0; white-space: nowrap; }
+
+        .util-bar-wrap {
+            flex: 1;
+            height: 12px;
+            background: rgba(0,0,0,0.5);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .util-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #9ae6b4);
+            border-radius: 6px;
+            transition: width 0.5s ease;
+        }
+
+        .util-pct { font-size: 0.85em; font-weight: bold; color: #9ae6b4; min-width: 42px; text-align: right; }
+
+        /* Summary stats row */
+        .gantt-summary {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+
+        .gantt-stat {
+            background: rgba(0,0,0,0.4);
+            padding: 7px 12px;
+            border-radius: 8px;
+            font-size: 0.78em;
+            color: #a0aec0;
+            flex: 1;
+            text-align: center;
+            min-width: 110px;
+        }
+
+        .gantt-stat strong { color: #667eea; }
+
+        /* Empty Gantt */
+        .gantt-empty {
+            text-align: center;
+            padding: 40px 20px;
+            color: #4a5568;
+            font-size: 0.9em;
+        }
+
+        .gantt-empty-icon { font-size: 2em; margin-bottom: 8px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🖥️ Mini Operating System Simulator</h1>
+            <div class="subtitle">Process Scheduling (Round Robin) | Memory Management (Paging) | Virtual File System | CPU Gantt Chart</div>
+        </div>
+
+        <div class="dashboard">
+            <!-- Process Management -->
+            <div class="card">
+                <div class="card-header"><h2>📋 Process Control Block (PCB)</h2></div>
+                <div class="card-body">
+                    <div id="processList"></div>
+                </div>
+                <div class="card-body" style="border-top:1px solid rgba(102,126,234,0.2);padding-top:15px;">
+                    <div class="stats">
+                        <div class="stat">🟢 Ready: <span id="readyCount" class="stat-value">0</span></div>
+                        <div class="stat">🔴 Running: <span id="runningCount" class="stat-value">0</span></div>
+                        <div class="stat">💀 Terminated: <span id="termCount" class="stat-value">0</span></div>
+                        <div class="stat">📊 Total: <span id="totalCount" class="stat-value">0</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Memory Management -->
+            <div class="card">
+                <div class="card-header"><h2>💾 Memory Map (Paging - 10KB/Page)</h2></div>
+                <div class="card-body"><div id="memoryList"></div></div>
+                <div class="card-body" style="border-top:1px solid rgba(102,126,234,0.2);padding-top:15px;">
+                    <div class="stat">💿 Memory Usage: <span id="memUsed" class="stat-value">0</span> KB / 100 KB</div>
+                    <div class="stat">📄 Free Pages: <span id="freePages" class="stat-value">10</span> / 10</div>
+                </div>
+            </div>
+
+            <!-- File System -->
+            <div class="card">
+                <div class="card-header"><h2>📁 Virtual File System</h2></div>
+                <div class="card-body"><div id="fileList"></div></div>
+                <div class="card-body" style="border-top:1px solid rgba(102,126,234,0.2);padding-top:15px;">
+                    <div class="stat">📄 Total Files: <span id="fileCount" class="stat-value">0</span></div>
+                    <div class="stat">💾 Total Size: <span id="totalFileSize" class="stat-value">0</span> bytes</div>
+                </div>
+            </div>
+
+            <!-- ===== CPU GANTT CHART CARD ===== -->
+            <div class="card gantt-card">
+                <div class="card-header">
+                    <h2>📊 CPU Gantt Chart — Scheduling Timeline</h2>
+                </div>
+                <div class="gantt-container">
+                    <!-- Toolbar -->
+                    <div class="gantt-toolbar">
+                        <span>View:</span>
+                        <button class="gantt-btn active" id="btnAll" onclick="setGanttFilter('all')">All Processes</button>
+                        <button class="gantt-btn" id="btnRunning" onclick="setGanttFilter('running')">Running Only</button>
+                        <button class="gantt-btn" id="btnTerminated" onclick="setGanttFilter('terminated')">Terminated Only</button>
+                        <span style="margin-left:auto;">Quantum: <strong style="color:#667eea;" id="quantumLabel">100ms</strong></span>
+                        <input type="range" id="quantumSlider" min="50" max="500" step="50" value="100"
+                               style="width:100px;padding:4px;border:none;background:transparent;cursor:pointer;"
+                               oninput="updateQuantum(this.value)">
+                        <button class="gantt-btn" onclick="clearGantt()" style="border-color:rgba(245,101,101,0.4);color:#f56565;">🗑 Clear Chart</button>
+                    </div>
+
+                    <!-- Legend -->
+                    <div class="gantt-legend" id="ganttLegend"></div>
+
+                    <!-- Chart area -->
+                    <div id="ganttArea">
+                        <div class="gantt-empty">
+                            <div class="gantt-empty-icon">📊</div>
+                            Schedule processes to see the Gantt chart populate in real time.
+                        </div>
+                    </div>
+
+                    <!-- CPU Utilization -->
+                    <div class="gantt-utilization">
+                        <span class="util-label">⚡ CPU Utilization</span>
+                        <div class="util-bar-wrap">
+                            <div class="util-bar" id="utilBar" style="width:0%"></div>
+                        </div>
+                        <span class="util-pct" id="utilPct">0%</span>
+                    </div>
+
+                    <!-- Summary stats -->
+                    <div class="gantt-summary">
+                        <div class="gantt-stat">⏱ Total Time: <strong id="gTotalTime">0ms</strong></div>
+                        <div class="gantt-stat">🔄 Switches: <strong id="gSwitches">0</strong></div>
+                        <div class="gantt-stat">📦 Bursts: <strong id="gBursts">0</strong></div>
+                        <div class="gantt-stat">🏁 Avg Burst: <strong id="gAvgBurst">—</strong></div>
+                        <div class="gantt-stat">🔢 Processes: <strong id="gProcesses">0</strong></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <h2 style="color:#667eea;margin-bottom:20px;">🎮 System Controls</h2>
+
+            <div class="control-group">
+                <label>📝 Process Name:</label>
+                <input type="text" id="procName" value="Process" style="flex:1">
+                <label>💾 Memory (KB):</label>
+                <input type="number" id="procMem" value="20" min="1" max="100" style="width:100px">
+                <button onclick="createProcess()">➕ Create Process</button>
+                <button onclick="scheduleNext()">⏭️ Schedule Next (Round Robin)</button>
+            </div>
+
+            <div class="control-group">
+                <label>📄 File Name:</label>
+                <input type="text" id="fileName" value="document.txt" style="flex:1">
+                <label>📝 Content:</label>
+                <input type="text" id="fileContent" value="Hello Mini OS!" style="flex:2">
+                <button onclick="createFile()">💾 Create File</button>
+                <button onclick="deleteFile()">🗑️ Delete File</button>
+            </div>
+
+            <div class="control-group">
+                <button onclick="executeCurrentProcess()" style="background:linear-gradient(135deg,#48bb78,#38a169);">⚡ Execute Current Process</button>
+                <button onclick="terminateProcess()" style="background:linear-gradient(135deg,#f56565,#e53e3e);">💀 Terminate Running Process</button>
+                <button onclick="resetSystem()" style="background:linear-gradient(135deg,#718096,#4a5568);">🔄 Reset System</button>
+            </div>
+
+            <div id="status" class="status-bar">
+                💡 System Ready | Round Robin Scheduling | 100KB Memory | Gantt Chart Active
+            </div>
+        </div>
+    </div>
+
+    <!-- Tooltip -->
+    <div class="gantt-tooltip" id="ganttTooltip"></div>
+
+    <script>
+    // ============= MINI OS KERNEL =============
+
+    const TOTAL_MEMORY = 100, PAGE_SIZE = 10, TOTAL_PAGES = TOTAL_MEMORY / PAGE_SIZE;
+
+    let processes = [], readyQueue = [], currentProcess = null, nextPID = 1;
+    let memoryPages = new Array(TOTAL_PAGES).fill(null);
+    let fileSystem = {};
+
+    const STATE = { READY: 'READY', RUNNING: 'RUNNING', TERMINATED: 'TERMINATED' };
+
+    class PCB {
+        constructor(pid, name, memoryRequired) {
+            this.pid = pid;
+            this.name = name;
+            this.memoryRequired = memoryRequired;
+            this.state = STATE.READY;
+            this.programCounter = 0;
+            this.memoryPages = [];
+            this.creationTime = Date.now();
+        }
+    }
+
+    // ============= GANTT CHART STATE =============
+
+    let ganttQuantum = 100; // ms per scheduling quantum
+    let ganttFilter = 'all';
+    let ganttEntries = []; // { pid, name, start, end, color }
+    let ganttClock = 0;    // simulated time in ms
+    let ganttSwitches = 0;
+    let lastGanttPID = null;
+
+    // Distinct color palette for processes
+    const PROCESS_COLORS = [
+        '#667eea','#f56565','#48bb78','#ed8936','#9f7aea',
+        '#38b2ac','#f6ad55','#fc8181','#68d391','#76e4f7',
+        '#b794f4','#fbd38d','#90cdf4','#fca5a5','#6ee7b7'
+    ];
+
+    const pidColorMap = {};
+
+    function getProcessColor(pid) {
+        if (!pidColorMap[pid]) {
+            const idx = Object.keys(pidColorMap).length % PROCESS_COLORS.length;
+            pidColorMap[pid] = PROCESS_COLORS[idx];
+        }
+        return pidColorMap[pid];
+    }
+
+    function recordGanttSlice(process) {
+        const start = ganttClock;
+        const end = ganttClock + ganttQuantum;
+
+        if (lastGanttPID !== null && lastGanttPID !== process.pid) {
+            ganttSwitches++;
+        }
+        lastGanttPID = process.pid;
+
+        ganttEntries.push({
+            pid: process.pid,
+            name: process.name,
+            start,
+            end,
+            color: getProcessColor(process.pid),
+            state: process.state
+        });
+
+        ganttClock = end;
+        refreshGantt();
+    }
+
+    function setGanttFilter(f) {
+        ganttFilter = f;
+        ['btnAll','btnRunning','btnTerminated'].forEach(id => {
+            document.getElementById(id).classList.remove('active');
+        });
+        const map = { all:'btnAll', running:'btnRunning', terminated:'btnTerminated' };
+        document.getElementById(map[f]).classList.add('active');
+        refreshGantt();
+    }
+
+    function updateQuantum(v) {
+        ganttQuantum = parseInt(v);
+        document.getElementById('quantumLabel').textContent = v + 'ms';
+    }
+
+    function clearGantt() {
+        ganttEntries = [];
+        ganttClock = 0;
+        ganttSwitches = 0;
+        lastGanttPID = null;
+        refreshGantt();
+        updateStatus('🗑 Gantt chart cleared.');
+    }
+
+    function refreshGantt() {
+        const area = document.getElementById('ganttArea');
+        const legend = document.getElementById('ganttLegend');
+
+        // Filter entries
+        let filtered = ganttEntries;
+        if (ganttFilter === 'running') {
+            filtered = filtered.filter(e => {
+                const proc = processes.find(p => p.pid === e.pid);
+                return proc && proc.state === STATE.RUNNING;
+            });
+        } else if (ganttFilter === 'terminated') {
+            filtered = filtered.filter(e => {
+                const proc = processes.find(p => p.pid === e.pid);
+                return proc && proc.state === STATE.TERMINATED;
+            });
+        }
+
+        if (filtered.length === 0) {
+            area.innerHTML = `<div class="gantt-empty"><div class="gantt-empty-icon">📊</div>${
+                ganttEntries.length === 0
+                    ? 'Schedule processes to see the Gantt chart populate in real time.'
+                    : 'No entries match the current filter.'
+            }</div>`;
+            updateGanttStats();
+            updateLegend(legend);
+            return;
+        }
+
+        // Unique processes in this view
+        const uniquePIDs = [...new Set(filtered.map(e => e.pid))];
+
+        // Total time span
+        const totalTime = ganttClock || 1;
+        const MIN_ROW_PX = 700; // minimum chart width in px
+
+        // Build legend
+        updateLegend(legend, uniquePIDs);
+
+        // Build chart
+        let html = `<div class="gantt-scroll"><div class="gantt-inner">`;
+
+        // Labels column
+        html += `<div class="gantt-labels">`;
+        uniquePIDs.forEach(pid => {
+            const entry = filtered.find(e => e.pid === pid);
+            html += `<div class="gantt-label" style="color:${getProcessColor(pid)}">PID ${pid} · ${entry.name}</div>`;
+        });
+        html += `</div>`;
+
+        // Timeline column
+        html += `<div class="gantt-timeline-wrap" style="min-width:${MIN_ROW_PX}px;flex:1;">`;
+
+        // Tick marks
+        html += `<div class="gantt-ticks" style="position:relative;height:20px;">`;
+        const tickCount = Math.min(10, filtered.length + 1);
+        for (let t = 0; t <= tickCount; t++) {
+            const ms = Math.round((totalTime / tickCount) * t);
+            const pct = (ms / totalTime) * 100;
+            html += `<span class="gantt-tick" style="left:${pct}%">${ms}ms</span>`;
+        }
+        html += `</div>`;
+
+        // Rows
+        uniquePIDs.forEach(pid => {
+            const pidEntries = filtered.filter(e => e.pid === pid);
+            html += `<div class="gantt-row">`;
+            pidEntries.forEach(e => {
+                const left = (e.start / totalTime) * 100;
+                const width = Math.max(((e.end - e.start) / totalTime) * 100, 0.5);
+                const label = width > 3 ? `${e.end - e.start}ms` : '';
+                html += `<div class="gantt-block"
+                    style="left:${left}%;width:${width}%;background:${e.color};"
+                    onmouseenter="showTooltip(event,'${e.name}',${e.pid},${e.start},${e.end})"
+                    onmouseleave="hideTooltip()"
+                >${label}</div>`;
+            });
+            html += `</div>`;
+        });
+
+        html += `</div></div></div>`;
+        area.innerHTML = html;
+
+        updateGanttStats();
+    }
+
+    function updateLegend(legend, pids) {
+        if (!pids || pids.length === 0) { legend.innerHTML = ''; return; }
+        legend.innerHTML = pids.map(pid => {
+            const entry = ganttEntries.find(e => e.pid === pid);
+            const name = entry ? entry.name : `PID ${pid}`;
+            return `<div class="legend-item">
+                <div class="legend-dot" style="background:${getProcessColor(pid)}"></div>
+                <span>PID ${pid} · ${name}</span>
+            </div>`;
+        }).join('');
+    }
+
+    function updateGanttStats() {
+        const totalTime = ganttClock;
+        const busyTime = ganttEntries.reduce((a, e) => a + (e.end - e.start), 0);
+        const utilPct = totalTime > 0 ? Math.round((busyTime / totalTime) * 100) : 0;
+
+        document.getElementById('utilBar').style.width = utilPct + '%';
+        document.getElementById('utilPct').textContent = utilPct + '%';
+        document.getElementById('gTotalTime').textContent = totalTime + 'ms';
+        document.getElementById('gSwitches').textContent = ganttSwitches;
+        document.getElementById('gBursts').textContent = ganttEntries.length;
+        document.getElementById('gAvgBurst').textContent = ganttEntries.length
+            ? Math.round(busyTime / ganttEntries.length) + 'ms' : '—';
+        document.getElementById('gProcesses').textContent = new Set(ganttEntries.map(e => e.pid)).size;
+    }
+
+    function showTooltip(event, name, pid, start, end) {
+        const tip = document.getElementById('ganttTooltip');
+        tip.innerHTML = `
+            <strong style="color:${getProcessColor(pid)}">${name}</strong> (PID: ${pid})<br>
+            ⏱ Start: ${start}ms &nbsp;|&nbsp; End: ${end}ms<br>
+            ⌛ Duration: ${end - start}ms
+        `;
+        tip.style.display = 'block';
+        tip.style.left = (event.clientX + 14) + 'px';
+        tip.style.top = (event.clientY - 10) + 'px';
+    }
+
+    function hideTooltip() {
+        document.getElementById('ganttTooltip').style.display = 'none';
+    }
+
+    document.addEventListener('mousemove', e => {
+        const tip = document.getElementById('ganttTooltip');
+        if (tip.style.display === 'block') {
+            tip.style.left = (e.clientX + 14) + 'px';
+            tip.style.top = (e.clientY - 10) + 'px';
+        }
+    });
+
+    // ============= Memory Management =============
+
+    function allocateMemory(pid, size) {
+        let pagesNeeded = Math.ceil(size / PAGE_SIZE), allocatedPages = [];
+        for (let i = 0; i <= TOTAL_PAGES - pagesNeeded; i++) {
+            let free = true;
+            for (let j = 0; j < pagesNeeded; j++) { if (memoryPages[i+j] !== null) { free = false; break; } }
+            if (free) {
+                for (let j = 0; j < pagesNeeded; j++) { memoryPages[i+j] = pid; allocatedPages.push(i+j); }
+                return allocatedPages;
+            }
+        }
+        return null;
+    }
+
+    function freeMemory(pid) { for (let i = 0; i < TOTAL_PAGES; i++) { if (memoryPages[i] === pid) memoryPages[i] = null; } }
+    function getMemoryUsage() { let u = 0; for (let i = 0; i < TOTAL_PAGES; i++) { if (memoryPages[i] !== null) u += PAGE_SIZE; } return u; }
+    function getFreePages() { return memoryPages.filter(p => p === null).length; }
+
+    // ============= Process Management =============
+
+    function createProcess() {
+        let name = document.getElementById('procName').value || 'Process';
+        let memory = parseInt(document.getElementById('procMem').value);
+        if (isNaN(memory) || memory < 1 || memory > TOTAL_MEMORY) { updateStatus('❌ Invalid memory size! Must be 1-100 KB', 'error'); return; }
+        let pid = nextPID++;
+        let process = new PCB(pid, name, memory);
+        let allocatedPages = allocateMemory(pid, memory);
+        if (!allocatedPages) { updateStatus(`❌ Cannot allocate ${memory}KB for ${name} - Memory full!`, 'error'); return; }
+        process.memoryPages = allocatedPages;
+        processes.push(process);
+        readyQueue.push(process);
+        updateStatus(`✅ Process ${name} (PID: ${pid}) created with ${memory}KB | Pages: [${allocatedPages.join(', ')}]`);
+        refreshUI();
+    }
+
+    function scheduleNext() {
+        if (currentProcess && currentProcess.state === STATE.RUNNING) {
+            currentProcess.state = STATE.READY;
+            readyQueue.push(currentProcess);
+        }
+        if (readyQueue.length === 0) {
+            currentProcess = null;
+            updateStatus('⚠️ No processes in ready queue!', 'warning');
+            refreshUI();
+            return;
+        }
+        currentProcess = readyQueue.shift();
+        currentProcess.state = STATE.RUNNING;
+        currentProcess.programCounter++;
+
+        // 📊 Record Gantt slice
+        recordGanttSlice(currentProcess);
+
+        updateStatus(`🔄 ${currentProcess.name} (PID: ${currentProcess.pid}) RUNNING | PC: ${currentProcess.programCounter} | Gantt updated`);
+        refreshUI();
+    }
+
+    function executeCurrentProcess() {
+        if (!currentProcess) { updateStatus('❌ No process running! Schedule one first.', 'error'); return; }
+        let executionTime = Math.floor(Math.random() * 500) + 100;
+        updateStatus(`⚙️ Executing ${currentProcess.name} for ${executionTime}ms...`);
+        setTimeout(() => {
+            if (currentProcess && currentProcess.state === STATE.RUNNING) {
+                updateStatus(`✅ ${currentProcess.name} completed execution cycle | PC: ${currentProcess.programCounter}`);
+                refreshUI();
+            }
+        }, executionTime);
+    }
+
+    function terminateProcess() {
+        if (!currentProcess) { updateStatus('❌ No running process to terminate!', 'error'); return; }
+        let process = currentProcess;
+        process.state = STATE.TERMINATED;
+        freeMemory(process.pid);
+        updateStatus(`💀 Process ${process.name} (PID: ${process.pid}) terminated. ${process.memoryRequired}KB freed.`);
+        currentProcess = null;
+        refreshGantt(); // refresh to reflect terminated state in filter
+        refreshUI();
+    }
+
+    // ============= File System =============
+
+    function createFile() {
+        let fileName = document.getElementById('fileName').value;
+        let content = document.getElementById('fileContent').value;
+        if (!fileName) { updateStatus('❌ Please enter a file name!', 'error'); return; }
+        fileSystem[fileName] = { content, created: new Date().toLocaleTimeString(), size: content.length };
+        updateStatus(`📝 File "${fileName}" created (${content.length} bytes)`);
+        refreshUI();
+    }
+
+    function deleteFile() {
+        let fileName = document.getElementById('fileName').value;
+        if (fileSystem[fileName]) { delete fileSystem[fileName]; updateStatus(`🗑️ File "${fileName}" deleted`); refreshUI(); }
+        else { updateStatus(`❌ File "${fileName}" not found!`, 'error'); }
+    }
+
+    function readFile(fileName) {
+        if (fileSystem[fileName]) { updateStatus(`📖 Reading "${fileName}": ${fileSystem[fileName].content}`); }
+    }
+
+    function getTotalFileSize() { return Object.values(fileSystem).reduce((a, f) => a + f.size, 0); }
+
+    // ============= UI =============
+
+    function refreshUI() { refreshProcessList(); refreshMemoryMap(); refreshFileList(); updateStats(); }
+
+    function refreshProcessList() {
+        let container = document.getElementById('processList');
+        container.innerHTML = '';
+        let allProcesses = [...processes];
+        if (currentProcess && !allProcesses.find(p => p.pid === currentProcess.pid)) allProcesses.push(currentProcess);
+        if (allProcesses.length === 0) {
+            container.innerHTML = '<div class="empty-state">✨ No processes running<br>Create a process to get started</div>';
+            return;
+        }
+        allProcesses.forEach(proc => {
+            let div = document.createElement('div');
+            div.className = 'process-item';
+            if (currentProcess && currentProcess.pid === proc.pid && proc.state === STATE.RUNNING) div.classList.add('running');
+            let badge = proc.state === STATE.READY ? '<span class="badge badge-ready">READY</span>'
+                : proc.state === STATE.RUNNING ? '<span class="badge badge-running">RUNNING</span>'
+                : '<span class="badge badge-terminated">TERMINATED</span>';
+            let icon = {READY:'🟢',RUNNING:'🔴',TERMINATED:'💀'}[proc.state];
+            div.innerHTML = `
+                <div class="process-name">${icon} <strong>${proc.name}</strong> ${badge}
+                    <span style="margin-left:auto;font-size:.8em;">PID: ${proc.pid}</span></div>
+                <div class="process-details">
+                    <span class="detail-badge">📊 Memory: ${proc.memoryRequired}KB</span>
+                    <span class="detail-badge">🔄 PC: ${proc.programCounter}</span>
+                    <span class="detail-badge">📅 ${new Date(proc.creationTime).toLocaleTimeString()}</span>
+                </div>
+                <div class="pages-list">📄 Pages: [${proc.memoryPages.join(', ')}] (${proc.memoryPages.length} pages)</div>`;
+            container.appendChild(div);
+        });
+    }
+
+    function refreshMemoryMap() {
+        let container = document.getElementById('memoryList');
+        container.innerHTML = '';
+        for (let i = 0; i < TOTAL_PAGES; i++) {
+            let div = document.createElement('div');
+            let isFree = memoryPages[i] === null;
+            div.className = isFree ? 'memory-block memory-free' : 'memory-block memory-used';
+            let proc = processes.find(p => p.pid === memoryPages[i]);
+            div.innerHTML = `<span class="memory-address">📄 Page ${i} | ${i*PAGE_SIZE}-${(i+1)*PAGE_SIZE}KB</span>
+                <span class="memory-owner">${isFree ? 'FREE' : `${proc ? proc.name : 'Unknown'} (PID:${memoryPages[i]})`}</span>`;
+            container.appendChild(div);
+        }
+        document.getElementById('memUsed').innerText = getMemoryUsage();
+        document.getElementById('freePages').innerText = getFreePages();
+    }
+
+    function refreshFileList() {
+        let container = document.getElementById('fileList');
+        let files = Object.keys(fileSystem);
+        if (files.length === 0) { container.innerHTML = '<div class="empty-state">📂 No files in Virtual File System</div>'; return; }
+        container.innerHTML = '';
+        files.forEach(fileName => {
+            let file = fileSystem[fileName];
+            let div = document.createElement('div');
+            div.className = 'file-item';
+            div.innerHTML = `<div class="file-name">📄 <strong>${fileName}</strong><span style="margin-left:auto;font-size:.7em;">${file.size} bytes</span></div>
+                <div class="file-meta">🕐 ${file.created}</div>
+                <div class="file-content">💬 "${file.content.substring(0,80)}${file.content.length>80?'...':''}"</div>`;
+            div.onclick = () => readFile(fileName);
+            container.appendChild(div);
+        });
+        document.getElementById('fileCount').innerText = files.length;
+        document.getElementById('totalFileSize').innerText = getTotalFileSize();
+    }
+
+    function updateStats() {
+        document.getElementById('readyCount').innerText = processes.filter(p => p.state === STATE.READY).length;
+        document.getElementById('runningCount').innerText = currentProcess && currentProcess.state === STATE.RUNNING ? 1 : 0;
+        document.getElementById('termCount').innerText = processes.filter(p => p.state === STATE.TERMINATED).length;
+        document.getElementById('totalCount').innerText = processes.length;
+    }
+
+    function updateStatus(msg, type='info') {
+        let icons = {error:'❌',warning:'⚠️',info:'💡'};
+        document.getElementById('status').innerHTML = `${icons[type]||'💡'} ${msg}`;
+        if (type==='error'||type==='warning') setTimeout(()=>{ document.getElementById('status').innerHTML='💡 System Ready | Round Robin Scheduling | 100KB Memory | Gantt Chart Active'; }, 4000);
+    }
+
+    function resetSystem() {
+        processes=[]; readyQueue=[]; currentProcess=null; nextPID=1;
+        memoryPages.fill(null); fileSystem={};
+        ganttEntries=[]; ganttClock=0; ganttSwitches=0; lastGanttPID=null;
+        Object.keys(pidColorMap).forEach(k=>delete pidColorMap[k]);
+        updateStatus('🔄 System reset! All processes, files and Gantt cleared.');
+        refreshUI(); refreshGantt();
+    }
+
+    // ============= Demo Init =============
+
+    function initDemo() {
+        setTimeout(() => {
+            document.getElementById('procName').value = 'Chrome Browser';
+            document.getElementById('procMem').value = '30';
+            createProcess();
+            setTimeout(() => {
+                document.getElementById('procName').value = 'Code Editor';
+                document.getElementById('procMem').value = '25';
+                createProcess();
+                setTimeout(() => {
+                    document.getElementById('procName').value = 'Media Player';
+                    document.getElementById('procMem').value = '20';
+                    createProcess();
+                    setTimeout(() => {
+                        document.getElementById('fileName').value = 'welcome.txt';
+                        document.getElementById('fileContent').value = 'Welcome to Mini OS! Gantt chart tracks CPU scheduling in real time.';
+                        createFile();
+                        scheduleNext();
+                        setTimeout(() => { scheduleNext(); setTimeout(() => { scheduleNext(); }, 300); }, 300);
+                    }, 400);
+                }, 400);
+            }, 400);
+        }, 400);
+    }
+
+    refreshUI();
+    initDemo();
+    </script>
+</body>
+</html>
